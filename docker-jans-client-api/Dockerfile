@@ -35,7 +35,8 @@ EXPOSE 8080
 # ======
 
 ARG JYTHON_VERSION=2.7.3
-RUN wget -q https://ox.gluu.org/maven/org/gluufederation/jython-installer/${JYTHON_VERSION}/jython-installer-${JYTHON_VERSION}.jar -O /tmp/jython-installer.jar \
+ARG JYTHON_BUILD_DATE='2022-08-01 07:49'
+RUN wget -q https://maven.jans.io/maven/io/jans/jython-installer//${JYTHON_VERSION}/jython-installer-${JYTHON_VERSION}.jar -O /tmp/jython-installer.jar \
     && mkdir -p /opt/jython \
     && java -jar /tmp/jython-installer.jar -v -s -d /opt/jython -e ensurepip \
     && rm -f /tmp/jython-installer.jar /tmp/*.properties
@@ -45,7 +46,7 @@ RUN wget -q https://ox.gluu.org/maven/org/gluufederation/jython-installer/${JYTH
 # ==========
 
 ENV CN_VERSION=1.0.2-SNAPSHOT
-ENV CN_BUILD_DATE='2022-07-26 14:20'
+ENV CN_BUILD_DATE='2022-08-03 12:40'
 ENV CN_SOURCE_URL=https://jenkins.jans.io/maven/io/jans/jans-client-api-server/${CN_VERSION}/jans-client-api-server-${CN_VERSION}.war
 
 COPY jetty/jetty-env.xml /tmp/WEB-INF/jetty-env.xml
@@ -82,7 +83,7 @@ RUN mkdir -p /opt/prometheus \
 # jans-linux-setup sync
 # =====================
 
-ENV JANS_LINUX_SETUP_VERSION=819fc2bc8ca596845a17498f7bd2e101cc466775
+ENV JANS_SOURCE_VERSION=22dcc768ff288f767059e458654d5f91935118ac
 ARG JANS_SETUP_DIR=jans-linux-setup/jans_setup
 
 # note that as we're pulling from a monorepo (with multiple project in it)
@@ -90,7 +91,7 @@ ARG JANS_SETUP_DIR=jans-linux-setup/jans_setup
 RUN git clone --filter blob:none --no-checkout https://github.com/janssenproject/jans /tmp/jans \
     && cd /tmp/jans \
     && git sparse-checkout init --cone \
-    && git checkout ${JANS_LINUX_SETUP_VERSION} \
+    && git checkout ${JANS_SOURCE_VERSION} \
     && git sparse-checkout set ${JANS_SETUP_DIR}
 
 RUN mkdir -p /app/static/rdbm /app/schema /app/templates/jans-client-api

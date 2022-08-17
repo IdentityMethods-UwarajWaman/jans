@@ -2,10 +2,13 @@
 
 ## Common errors
 
+### Source code of flow ... has errors
 
-### Source code of flow ... has not been parsed yet or has errors
+Details [here](./lifecycle.md#about-syntax-errors).
 
-TODO
+### Source code of flow ... has not been parsed yet
+
+This may happen when a flow is launched right after its creation and [transpilation](./dsl.md#language-compiler) has not occurred yet. Try again in the next few seconds.
 
 ### Unable to find a constructor with arity ... in class ...
 
@@ -15,19 +18,23 @@ A Java invocation of the form `Call package.className#new ...` is passing a numb
 
 A java invocation is attempting to call a method that is not part of the given class or the number of parameters passed for the method is not correct.
 
+### No Finish instruction was reached
+
+This occurs when no `Finish` statement has been found in the execution of a flow and there are no remaining instructions.
+
 ## Classes added on the fly
 
 ### A class does not "see" other classes in its own package
 
 This is a limitation of the scripting engine. Here, classes have to be imported even if they belong to the same package, or the fully qualified name used.
 
+### How to append data to a flow's log directly?
+
+Call method `log` of class `io.jans.agama.engine.script.LogUtils`. This method receives a variable number of arguments as DSL's `Log` does. Thus you can do `LogUtils.log("@w Today is Friday %th", 13)`, as in the logging [examples](./dsl-full.md#logging).
+
 ### What Groovy and Java versions are supported?
 
 Groovy 4.0 and Java 11. The runtime is Amazon Corretto 11.
-
-### How to append data to a flow's log directly?
-
-This can be done by calling method `log` of class `io.jans.agama.engine.script.LogUtils`. This method receives a variable number of arguments as DSL's `Log` does. Thus you can do `LogUtils.log("@w Today is Friday %th", 13)`, as in the logging [examples](./dsl-full.md#logging).
 
 ## Templates
 
@@ -40,6 +47,10 @@ The syntax of these files adhere to that of Java properties files. The suffixes 
 Agama engine will pick the messages from the bundle that best matches the language settings of the end-user browser. Normally, this is supplied through the HTTP header `Accept-Language`.
 
 A file with no suffix, i.e. `jans-auth.properties` is used as fallback when a message cannot be found in specific language/country combination. To learn how to reference a message in a template, visit [this](./ui-pages.md#data-model) page.
+
+### How to modify the built-in error pages?
+
+Agama features some error pages out-of-the-box. They can be customized by editing the corresponding files referenced in the [configuration](./engine-config.md) doc page.  
 
 ### Is Javascript supported?
 
@@ -63,21 +74,41 @@ Not yet unfortunately. We plan to offer tools in the future to ease the developm
 
 We plan to offer a debugger in the future. In the meantime, you can do `printf`-like debugging using the `Log` instruction. See [Agama logging](./logging.md).
 
+## About Agama engine
+
+### Does it support AJAX?
+
+If you require a flow with no page refreshes, it could be implemented using AJAX calls as long as they align to the [POST-REDIRECT-GET](./flows-lifecycle.md#flow-advance-and-navigation) pattern, where a form is submitted, and as response a 302/303 HTTP redirection is obtained. Your Javascript code must also render UI elements in accordance with the data obtained by following the redirect (GET). Also, care must be taken in order to process server errors, timeouts, etc. In general, this requires a considerable amount of effort.
+
+If you require AJAX to consume a resource (service) residing in the same domain of your server, there is no restriction - the engine is not involved. Interaction with external domains may require to setup CORS configuration appropriately in the authentication server.  
+
+### I want/need to understand the internals, where to start?
+
+The quick start guide is a must, followed by [Hello world flow for project maintainers](./hello-world-maintainer.md). In the end a complete sweep over all the docs is needed.
+
 ## Miscellaneous
 
-### Does flow execution times out?
+### Does flow execution timeout?
 
-Yes. The maximum amount of time an end-user can take to fully complete a flow is driven by the configuration of the authentication server and can be constrained even more in the flow itself. Read about timeouts [here](./flows-lifecycle.md#timeouts). 
+Yes. The maximum amount of time an end-user can take to fully complete a flow is driven by the configuration of the authentication server and can be constrained even more in the flow itself. Read about timeouts [here](./flows-lifecycle.md#timeouts).
+
+### How to prevent launching a flow directly from the browser?
+
+Disable the flow. It will still be callable from other flows. 
+
+### Updates in a flow's code are not reflected in its execution
+
+Ensure the engine is [enabled](./quick-start.md#enable-the-engine). Use the REST API (PUT method) to [update](./lifecycle.md#flow-updates) the flow's code. Wait one minute and then retrieve (GET) this flow's data. The property `codeError` in the response should have the cause.   
 
 ### Why are the contents of a list or map logged partially?
 
 This is to avoid traversing big structures fully. You can increase the value of `maxItemsLoggedInCollections` in the [engine configuration](./engine-config.md).
 
-## How to add two numbers or compare numeric values in Agama?
+### How to add two numbers or compare numeric values in Agama?
 
 Agama only provides operators for boolean comparison in conditional statements. The structure of an authentication flow will rarely have to deal with computations/comparisons of numbers, strings, etc. In case this is needed, developers have to resort to Java.
 
-## How to concatenate strings in Agama?
+### How to concatenate strings in Agama?
 
 See the previous answer. A two-lines solution could be:
 
@@ -86,10 +117,10 @@ strings = [ s1, s2, ... ]
 Call java.lang.String#join "" strings
 ```
 
-## How to know the index of a given loop iteration?
+### How to know the index of a given loop iteration?
 
 See the examples in the Looping section of the DSL [full reference](./dsl-full.md#looping).
 
-## Can Agama code be called from Java?
+### Can Agama code be called from Java?
 
 No. These two languages are supposed to play roles that should not be mixed, check [here](./dsl.md#introduction) and [here](./lifecycle.md#design-and-code).

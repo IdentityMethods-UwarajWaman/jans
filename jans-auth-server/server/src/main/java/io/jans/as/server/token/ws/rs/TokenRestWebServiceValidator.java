@@ -1,5 +1,6 @@
 package io.jans.as.server.token.ws.rs;
 
+import io.jans.as.common.model.common.User;
 import io.jans.as.common.model.registration.Client;
 import io.jans.as.model.common.GrantType;
 import io.jans.as.model.configuration.AppConfiguration;
@@ -9,6 +10,7 @@ import io.jans.as.server.audit.ApplicationAuditLogger;
 import io.jans.as.server.model.audit.OAuth2AuditLog;
 import io.jans.as.server.model.common.AuthorizationGrant;
 import io.jans.as.server.model.common.DeviceAuthorizationCacheControl;
+import io.jans.as.server.model.common.RefreshToken;
 import io.jans.as.server.util.ServerUtil;
 import jakarta.ejb.Stateless;
 import jakarta.inject.Inject;
@@ -105,7 +107,7 @@ public class TokenRestWebServiceValidator {
         return builder.build();
     }
 
-    private Response.ResponseBuilder error(int status, TokenErrorResponseType type, String reason) {
+    public Response.ResponseBuilder error(int status, TokenErrorResponseType type, String reason) {
         return Response.status(status).type(MediaType.APPLICATION_JSON_TYPE).entity(errorResponseFactory.errorAsJson(type, reason));
     }
 
@@ -148,11 +150,25 @@ public class TokenRestWebServiceValidator {
         }
 
         if (!client.getClientId().equals(grant.getClientId())) {
-            log.debug("AuthorizationCodeGrant is found but belongs to another client. Grant's clientId: '{}', identifier: '{}'", grant.getClientId(), identifier);
+            log.debug("AuthorizationGrant is found but belongs to another client. Grant's clientId: '{}', identifier: '{}'", grant.getClientId(), identifier);
             if (onFailure != null) {
                 onFailure.accept(grant);
             }
             throw new WebApplicationException(response(error(400, TokenErrorResponseType.INVALID_GRANT, "Client mismatch."), auditLog));
+        }
+    }
+
+    public void validateRefreshToken(RefreshToken refreshTokenObject, OAuth2AuditLog auditLog) {
+        if (refreshTokenObject == null || !refreshTokenObject.isValid()) {
+            log.trace("Invalid refresh token.");
+            throw new WebApplicationException(response(error(400, TokenErrorResponseType.INVALID_GRANT, "Unable to find refresh token or otherwise token type or client does not match."), auditLog));
+        }
+    }
+
+    public void validateUser(User user, OAuth2AuditLog auditLog) {
+        if (user == null) {
+            log.debug("Invalid user", new RuntimeException("User is empty"));
+            throw new WebApplicationException(response(error(401, TokenErrorResponseType.INVALID_CLIENT, "Invalid user."), auditLog));
         }
     }
 }

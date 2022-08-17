@@ -6,20 +6,30 @@
 
 package io.jans.configapi.service.auth;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.client.util.Lists;
+import io.jans.as.common.model.registration.Client;
 import io.jans.as.common.service.OrganizationService;
 import io.jans.as.common.util.AttributeConstants;
+import io.jans.as.model.common.ScopeType;
 import io.jans.as.model.config.StaticConfiguration;
+import io.jans.as.model.uma.persistence.UmaResource;
 import io.jans.as.persistence.model.Scope;
+import io.jans.configapi.core.model.SearchRequest;
+import io.jans.configapi.rest.model.CustomScope;
 import io.jans.orm.PersistenceEntryManager;
 import io.jans.orm.search.filter.Filter;
 import io.jans.util.StringHelper;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Responsible for OpenID Connect, OAuth2 and UMA scopes. (Type is defined by
@@ -41,6 +51,12 @@ public class ScopeService {
 
     @Inject
     OrganizationService organizationService;
+
+    @Inject
+    ClientService clientService;
+
+    @Inject
+    UmaResourceService umaResourceService;
 
     public String baseDn() {
         return staticConfiguration.getBaseDn().getScopes();
@@ -70,9 +86,19 @@ public class ScopeService {
         persistenceEntryManager.merge(scope);
     }
 
-    public Scope getScopeByInum(String inum) {
+    public CustomScope getScopeByInum(String inum) {
+        return getScopeByInum(inum, false);
+    }
+
+    public CustomScope getScopeByInum(String inum, boolean withAssociatedClients) {
         try {
-            return persistenceEntryManager.find(Scope.class, getDnForScope(inum));
+            CustomScope scope = persistenceEntryManager.find(CustomScope.class, getDnForScope(inum));
+            if (withAssociatedClients) {
+                List<Client> clients = clientService.getAllClients();
+                List<UmaResource> umaResources = umaResourceService.getAllResources();
+                return setClients(scope, clients, umaResources);
+            }
+            return scope;
         } catch (Exception e) {
             return null;
         }
@@ -86,7 +112,7 @@ public class ScopeService {
         return String.format("inum=%s,ou=scopes,%s", inum, orgDn);
     }
 
-    public List<Scope> searchScopes(String pattern, int sizeLimit) {
+    public List<CustomScope> searchScopes(String pattern, int sizeLimit) {
         return searchScopes(pattern, sizeLimit, null);
     }
 
@@ -99,12 +125,17 @@ public class ScopeService {
             return new ArrayList<>();
         }
     }
-    
+
     public Scope getScopeByDn(String dn) {
         return persistenceEntryManager.find(Scope.class, dn);
     }
 
-    public List<Scope> searchScopes(String pattern, int sizeLimit, String scopeType) {
+    public List<CustomScope> searchScopes(String pattern, int sizeLimit, String scopeType) {
+        return searchScopes(pattern, sizeLimit, scopeType, false);
+    }
+
+    public List<CustomScope> searchScopes(String pattern, int sizeLimit, String scopeType,
+            boolean withAssociatedClients) {
         String[] targetArray = new String[] { pattern };
         Filter displayNameFilter = Filter.createSubstringFilter(AttributeConstants.DISPLAY_NAME, null, targetArray,
                 null);
@@ -115,22 +146,98 @@ public class ScopeService {
             searchFilter = Filter.createANDFilter(Filter.createEqualityFilter("jansScopeTyp", scopeType), searchFilter);
         }
         try {
-            return persistenceEntryManager.findEntries(getDnForScope(null), Scope.class, searchFilter, sizeLimit);
+            List<CustomScope> scopes = persistenceEntryManager.findEntries(getDnForScope(null), CustomScope.class,
+                    searchFilter, sizeLimit);
+
+            if (withAssociatedClients) {
+                List<Client> clients = clientService.getAllClients();
+                List<UmaResource> umaResources = umaResourceService.getAllResources();
+                return (scopes.stream().map(scope -> setClients(scope, clients, umaResources))
+                        .collect(Collectors.toList()));
+            }
+
+            return scopes;
         } catch (Exception e) {
             logger.error("No scopes found by pattern: " + pattern, e);
             return new ArrayList<>();
         }
     }
 
-    public List<Scope> getAllScopesList(int size) {
+    public List<CustomScope> getAllScopesList(int size) {
         return getAllScopesList(size, null);
     }
 
-    public List<Scope> getAllScopesList(int size, String scopeType) {
+    public List<CustomScope> getAllScopesList(int size, String scopeType) {
+        return getAllScopesList(size, scopeType, false);
+    }
+
+    public List<CustomScope> getAllScopesList(int size, String scopeType, boolean withAssociatedClients) {
         Filter searchFilter = null;
         if (StringHelper.isNotEmpty(scopeType)) {
             searchFilter = Filter.createEqualityFilter("jansScopeTyp", scopeType);
         }
-        return persistenceEntryManager.findEntries(getDnForScope(null), Scope.class, searchFilter, size);
+        List<CustomScope> scopes = persistenceEntryManager.findEntries(getDnForScope(null), CustomScope.class,
+                searchFilter, size);
+
+        if (withAssociatedClients) {
+            List<Client> clients = clientService.getAllClients();
+            List<UmaResource> umaResources = umaResourceService.getAllResources();
+            return (scopes.stream().map(scope -> setClients(scope, clients, umaResources))
+                    .collect(Collectors.toList()));
+        }
+        return scopes;
+    }
+
+    public List<CustomScope> searchScope(SearchRequest searchRequest) {
+        logger.debug("Search Scope with searchRequest:{}", searchRequest);
+
+        if (searchRequest != null && searchRequest.getFilterAttributes() != null
+                && !searchRequest.getFilterAttributes().isEmpty()) {
+
+            ArrayList<Filter> searchFilters = new ArrayList<>();
+
+            for (String filterAttribute : searchRequest.getFilterAttributes()) {
+                Filter filter = Filter.createEqualityFilter(filterAttribute, searchRequest.getFilter());
+                searchFilters.add(filter);
+            }
+            logger.debug("Search Scope with searchFilters:{}", searchFilters);
+            return persistenceEntryManager.findEntries(getDnForScope(null), CustomScope.class,
+                    Filter.createANDFilter(searchFilters));
+
+        }
+
+        return Collections.emptyList();
+    }
+
+    private CustomScope setClients(Scope scope, List<Client> clients, List<UmaResource> umaResources) {
+        ObjectMapper mapper = new ObjectMapper();
+        CustomScope customScope = mapper.convertValue(scope, CustomScope.class);
+        customScope.setClients(Lists.newArrayList());
+
+        for (Client client : clients) {
+            if (client.getScopes() == null) {
+                continue;
+            }
+            if (scope.getScopeType() == ScopeType.OPENID || scope.getScopeType() == ScopeType.OAUTH
+                    || scope.getScopeType() == ScopeType.DYNAMIC) {
+                if (Arrays.asList(client.getScopes()).contains(getDnForScope(scope.getInum()))) {
+                    customScope.getClients().add(client);
+                }
+            } else if (scope.getScopeType() == ScopeType.UMA) {
+                List<UmaResource> umaRes = umaResources.stream()
+                        .filter(umaResource -> (umaResource.getScopes() != null
+                                && umaResource.getScopes().contains(getDnForScope(scope.getInum()))))
+                        .collect(Collectors.toList());
+                if (umaRes.stream().anyMatch(
+                        ele -> ele.getClients().contains(clientService.getDnForClient(client.getClientId())))) {
+                    customScope.getClients().add(client);
+                }
+            } else if (scope.getScopeType() == ScopeType.SPONTANEOUS) {
+                if (client.getClientId().equals(customScope.getCreatorId())) {
+                    customScope.getClients().add(client);
+                }
+            }
+        }
+        return customScope;
     }
 }

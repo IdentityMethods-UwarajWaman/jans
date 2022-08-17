@@ -35,7 +35,7 @@ EXPOSE 8080
 # =====
 
 ENV CN_VERSION=1.0.2-SNAPSHOT
-ENV CN_BUILD_DATE='2022-07-26 14:18'
+ENV CN_BUILD_DATE='2022-08-03 12:37'
 ENV CN_SOURCE_URL=https://jenkins.jans.io/maven/io/jans/jans-fido2-server/${CN_VERSION}/jans-fido2-server-${CN_VERSION}.war
 
 # Install FIDO2
@@ -54,7 +54,7 @@ RUN mkdir -p ${JETTY_BASE}/jans-fido2/webapps \
 # jans-linux-setup sync
 # =====================
 
-ENV JANS_LINUX_SETUP_VERSION=cfdc70e6a2ddcc9d2ba4e3cf07df19344d613944
+ENV JANS_SOURCE_VERSION=22dcc768ff288f767059e458654d5f91935118ac
 ARG JANS_SETUP_DIR=jans-linux-setup/jans_setup
 
 # note that as we're pulling from a monorepo (with multiple project in it)
@@ -62,19 +62,31 @@ ARG JANS_SETUP_DIR=jans-linux-setup/jans_setup
 RUN git clone --filter blob:none --no-checkout https://github.com/janssenproject/jans /tmp/jans \
     && cd /tmp/jans \
     && git sparse-checkout init --cone \
-    && git checkout ${JANS_LINUX_SETUP_VERSION} \
+    && git checkout ${JANS_SOURCE_VERSION} \
     && git sparse-checkout set ${JANS_SETUP_DIR}
 
 RUN mkdir -p /etc/jans/conf \
     /etc/jans/conf/fido2/mds/cert \
     /etc/jans/conf/fido2/mds/toc \
-    /etc/jans/conf/fido2/server_metadata
+    /etc/jans/conf/fido2/server_metadata \
+    /app/static/rdbm \
+    /app/schema \
+    /app/templates/jans-fido2
 
-# COPY conf/fido2 /etc/jans/conf/fido2
 # sync static files from linux-setup
 RUN cd /tmp/jans \
     && cp -R ${JANS_SETUP_DIR}/static/fido2/authenticator_cert /etc/jans/conf/fido2/authenticator_cert \
-    && cp ${JANS_SETUP_DIR}/static/fido2/mds_toc_cert/metadata-root-ca.cer /etc/jans/conf/fido2/mds/cert/
+    && cp ${JANS_SETUP_DIR}/static/fido2/mds_toc_cert/metadata-root-ca.cer /etc/jans/conf/fido2/mds/cert/ \
+    && cp ${JANS_SETUP_DIR}/static/rdbm/sql_data_types.json /app/static/rdbm/ \
+    && cp ${JANS_SETUP_DIR}/static/rdbm/ldap_sql_data_type_mapping.json /app/static/rdbm/ \
+    && cp ${JANS_SETUP_DIR}/static/rdbm/opendj_attributes_syntax.json /app/static/rdbm/ \
+    && cp ${JANS_SETUP_DIR}/static/rdbm/sub_tables.json /app/static/rdbm/ \
+    && cp ${JANS_SETUP_DIR}/schema/jans_schema.json /app/schema/ \
+    && cp ${JANS_SETUP_DIR}/schema/custom_schema.json /app/schema/ \
+    && cp ${JANS_SETUP_DIR}/schema/opendj_types.json /app/schema/ \
+    && cp ${JANS_SETUP_DIR}/templates/jans-fido2/fido2.ldif /app/templates/jans-fido2/ \
+    && cp ${JANS_SETUP_DIR}/templates/jans-fido2/dynamic-conf.json /app/templates/jans-fido2/ \
+    && cp ${JANS_SETUP_DIR}/templates/jans-fido2/static-conf.json /app/templates/jans-fido2/
 
 # cleanup
 RUN rm -rf /tmp/jans

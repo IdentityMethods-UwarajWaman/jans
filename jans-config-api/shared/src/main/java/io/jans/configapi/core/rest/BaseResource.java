@@ -11,24 +11,26 @@ import io.jans.configapi.core.model.ApiError;
 import io.jans.configapi.core.model.SearchRequest;
 import io.jans.orm.model.SortOrder;
 
-import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.Response;
+
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BaseResource {
 
+    private static Logger log = LoggerFactory.getLogger(BaseResource.class);
     // Custom CODE
     public static final String MISSING_ATTRIBUTE_CODE = "OCA001";
     public static final String MISSING_ATTRIBUTE_MESSAGE = "A required attribute is missing.";
-
-    @Inject
-    Logger log;
 
     public static <T> void checkResourceNotNull(T resource, String objectName) {
         if (resource == null) {
@@ -45,6 +47,21 @@ public class BaseResource {
     public static void checkNotNull(String[] attributes, String attributeName) {
         if (attributes == null || attributes.length <= 0) {
             throw new BadRequestException(getMissingAttributeError(attributeName));
+        }
+    }
+
+    public static void checkNotNull(Map<String, String> attributeMap) {
+        if (attributeMap.isEmpty()) {
+            return;
+        }
+
+        Map<String, String> map = attributeMap.entrySet().stream()
+                .filter(k -> (k.getValue() == null || StringUtils.isNotEmpty(k.getValue())))
+                .collect(Collectors.toMap(Entry::getKey, Entry::getValue));
+
+        log.debug(" map:{}", map);
+        if (!map.isEmpty()) {
+            throw new BadRequestException(getMissingAttributeError(map.keySet().toString()));
         }
     }
 
@@ -69,7 +86,11 @@ public class BaseResource {
     public static void thorwBadRequestException(String msg) {
         throw new BadRequestException(getBadRequestException(msg));
     }
-    
+
+    public static void thorwBadRequestException(Object obj) {
+        throw new BadRequestException(getBadRequestException(obj));
+    }
+
     public static void thorwInternalServerException(String msg) {
         throw new InternalServerErrorException(getInternalServerException(msg));
     }
@@ -101,6 +122,10 @@ public class BaseResource {
         ApiError error = new ApiError.ErrorBuilder()
                 .withCode(String.valueOf(Response.Status.BAD_REQUEST.getStatusCode())).withMessage(msg).build();
         return Response.status(Response.Status.BAD_REQUEST).entity(error).build();
+    }
+
+    protected static Response getBadRequestException(Object obj) {
+        return Response.status(Response.Status.BAD_REQUEST).entity(obj).build();
     }
 
     protected static Response getInternalServerException(String msg) {

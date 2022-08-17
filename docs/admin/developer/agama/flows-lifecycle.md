@@ -23,7 +23,7 @@ Additionally, the engine by default sends responses with proper HTTP headers so 
 
 Carefully decide how use the [`Finish`](./dsl-full.md#flow-finish) directive in a flow. Specially when terminating sucessfully, many times developers would like to attach the identity of the user in question, as in `Finish userId`. This results in a successful authentication event and makes sense, but this is not always desired. Sometimes due to decomposition practices (in order to favor re-use and better organization), small flows can arise that should not carry the user identifier.
 
-As an example, suppose several flows exist for OTP (one-time passcode) authentication, like SMS, e-mail, token-based, etc. These would receive the user identifier as an input and act accordingly by verifying the passcode the user has entered at the browser. A parent flow can be used to prompt for a username and password first, and then forward the user to the OTP flow that better matches the user's preferences. This sounds fine, however, since any **enabled** flow can be triggered by means of an authentication request, a skilled individual might try to launch one of the OTP flows directly passing proper parameters. This would result in authentications using a single factor (i.e. no password) which is undesirable.   
+As an example, suppose several flows exist for OTP (one-time passcode) authentication, like SMS, e-mail, token-based, etc. These would receive the user identifier as an input and act accordingly by verifying the passcode the user has entered at the browser. A parent flow can be used to prompt for a username and password first, and then forward the user to the OTP flow that better matches the user's preferences. This sounds fine, however, since any **enabled** flow can be triggered by means of an authentication request, a skilled individual might try to launch one of the OTP flows directly passing proper parameters. This would result in authentications using a single factor (i.e. no password) which is undesirable.
 
 Thus, it is recommended to include `userId` in `Finish` only when there is a reason to do so, that is, when the authentication carried out by the flow is strong enough. This largely depends on the defined organization policies, but using a two-factor authentication is often a good sign of strength. Another approach is disabling flows that should not be triggered from a browser directly. Disabled flows can still be used as subflows from other flows.
 
@@ -96,10 +96,7 @@ When a page POSTs a cancellation as described earlier, the flow to return contro
 
 ## Timeouts
 
-Authentication flows are normally short-lived. They usually span no more than a few minutes. In agama, the maximum amount of time an end-user can take to fully complete a flow is driven by the configuration of the authentication server, specifically the `sessionIdUnauthenticatedUnusedLifetime` property which is measured in seconds. As an example, if this value is 120, any attempt to authenticate taking more than two minutes will throw an error page.
-
-!!! Note
-    To modify the value of `sessionIdUnauthenticatedUnusedLifetime`, see TODO
+Authentication flows are normally short-lived. They usually span no more than a few minutes. In Agama, the maximum amount of time an end-user can take to fully complete a flow is driven by the [configuration of the authentication server](../../config-guide/jans-cli/im/im-jans-authorization-server.md), specifically the `sessionIdUnauthenticatedUnusedLifetime` property which is measured in seconds. As an example, if this value is 120, any attempt to authenticate taking more than two minutes will throw an error page.
 
 Moreover, a flow may specify its own timeout in the [header](./dsl-full#header-basics). In practice, the effective timeout is the smallest value between `sessionIdUnauthenticatedUnusedLifetime` and the value supplied in the header, if any.
 
