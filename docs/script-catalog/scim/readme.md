@@ -300,6 +300,6 @@ There is an important exception to the above and is related to the `manage*` met
   
   
   
-  ## Common Use Cases
+## Common Use Cases
 
 Descriptions of common use cases for this script, including a code snippet for each
