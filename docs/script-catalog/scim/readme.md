@@ -123,8 +123,8 @@ Assume you are maintaining a user base of secret agents that work for your compa
 
 Let's alter `postSearchUsers`'s second parameter (`results`) to ensure addresses are not leaked:  
   
-`  for user in results.getEntries():
-    user.setAttribute("jansAddres", None)`
+    for user in results.getEntries():
+        user.setAttribute("jansAddres", None)
   
 This is very straightforward code except for the usage of `jansAddres`. Shouldn't it be simply `addresses` as the known SCIM attribute?
 
@@ -134,10 +134,10 @@ While it is easy to know the SCIM name of a database attribute, the converse req
 
 With that said, save your modifications. You may like the idea of adding some prints for enlightment like:
   
-`print "%d entries returned of %d" % (results.getEntriesCount(), results.getTotalEntriesCount())
-for user in results.getEntries():
-    print "Flushing addresses for user %s" % getUid() 
-    user.setAttribute("jansAddres", None)`
+    print "%d entries returned of %d" % (results.getEntriesCount(), results.getTotalEntriesCount())
+    for user in results.getEntries():
+        print "Flushing addresses for user %s" % getUid() 
+        user.setAttribute("jansAddres", None)
   
 Ensure no addresses are returned anymore in your SCIM user searches. Happy testing!
 
@@ -217,18 +217,18 @@ Save the changes.
 
 In the `init` method this properties should be parsed. To start, let's add some imports:
   
-`from io.jans.scim.ws.rs.scim2 import BaseScimWebService
-import json
-import sys `
+    from io.jans.scim.ws.rs.scim2 import BaseScimWebService
+    import json
+    import sys
   
 Here is how `init` would look like:
   
-`def init(self, configurationAttributes):
-    self.custom_header = configurationAttributes.get("custom_header").getValue2()
-    json = configurationAttributes.get("access_map").getValue2()    
-    self.access_map = json.loads(json)
-    print "ScimEventHandler (init): Initialized successfully"
-    return True`
+    def init(self, configurationAttributes):
+        self.custom_header = configurationAttributes.get("custom_header").getValue2()
+        json = configurationAttributes.get("access_map").getValue2()    
+        self.access_map = json.loads(json)
+        print "ScimEventHandler (init): Initialized successfully"
+        return True
   
 Note no validations took place here: we assumed the script contains the properties, that they are non empty and have sensible values.
 
@@ -236,13 +236,13 @@ Note no validations took place here: we assumed the script contains the properti
   
 The first step is to know the kind of application that is calling our service. For this purpose let's create a method that given incoming request headers returns the matching `userType`
 
-`# headers params is an instance of javax.ws.rs.core.MultivaluedMap<String, String>
-def getUserType(self, headers):
-    secret = headers.getFirst(self.custom_header)
-    if secret in self.access_map:
-       return self.access_map[secret]
-    else:
-       return None`
+    # headers params is an instance of javax.ws.rs.core.MultivaluedMap<String, String>
+    def getUserType(self, headers):
+        secret = headers.getFirst(self.custom_header)
+        if secret in self.access_map:
+            return self.access_map[secret]
+        else:
+            return None
   
 Now let's code `manageResourceOperation`. We should allow access only under the following conditions:
 
@@ -251,21 +251,18 @@ Now let's code `manageResourceOperation`. We should allow access only under the 
   
 Assume that if the operation invoked is not user-related, we should allow access freely. Here is how the implementation might look:
 
-<code>
-def manageResourceOperation(self, context, entity, payload, configurationAttributes):
+    def manageResourceOperation(self, context, entity, payload, configurationAttributes):
 
-    print "manageResourceOperation. SCIM endpoint invoked is %s (HTTP %s)" % (context.getPath(), context.getMethod()) 
-    if context.getResourceType() != "User":
-        return None
+        print "manageResourceOperation. SCIM endpoint invoked is %s (HTTP %s)" % (context.getPath(), context.getMethod()) 
+        if context.getResourceType() != "User":
+            return None
 
-    expected_user_type = self.getUserType(context.getRequestHeaders())
+        expected_user_type = self.getUserType(context.getRequestHeaders())
 
-    if expected_user_type != None and entity.getAttribute("jansUsrTyp") == expected_user_type:
-        return None
-    else:
-        return BaseScimWebService.getErrorResponse(403, None, "Attempt to handle a not allowed user type")
-  
-</code>
+        if expected_user_type != None and entity.getAttribute("jansUsrTyp") == expected_user_type:
+            return None
+        else:
+            return BaseScimWebService.getErrorResponse(403, None, "Attempt to handle a not allowed user type")
 
 <br/>Note no usage of the payload took place. A case you may like to evaluate is where mistakenly using an update operation, the `userType` is set to an unexpected value.
 
@@ -273,27 +270,23 @@ def manageResourceOperation(self, context, entity, payload, configurationAttribu
   
 This time instead of inspecting an entity, we ought to make a filter expression to restrict the search when the database is queried. For your reference, a valid filter expression is for instance `userType eq "Contractor"`.
 
-  <code>
-  
- def manageSearchOperation(self, context, searchRequest, configurationAttributes):
+    def manageSearchOperation(self, context, searchRequest, configurationAttributes):
 
-    print "manageSearchOperation. SCIM endpoint invoked is %s (HTTP %s)" % (context.getPath(), context.getMethod())
+        print "manageSearchOperation. SCIM endpoint invoked is %s (HTTP %s)" % (context.getPath(), context.getMethod())
 
-    resource_type = context.getResourceType()
-    print "manageSearchOperation. This is a search over %s resources" % resource_type
+        resource_type = context.getResourceType()
+        print "manageSearchOperation. This is a search over %s resources" % resource_type
 
-    if resource_type != "User":
-        return None
+        if resource_type != "User":
+            return None
 
-    expected_user_type = self.getUserType(context.getRequestHeaders())
+        expected_user_type = self.getUserType(context.getRequestHeaders())
 
-    if expected_user_type != None:
-        context.setFilterPrepend("userType eq \"%s\"" % expected_user_type)
-        return None
-    else:
-        return BaseScimWebService.getErrorResponse(403, None, "Attempt to handle a not allowed user type")
-  </code>
-
+        if expected_user_type != None:
+            context.setFilterPrepend("userType eq \"%s\"" % expected_user_type)
+            return None
+        else:
+            return BaseScimWebService.getErrorResponse(403, None, "Attempt to handle a not allowed user type")
 
 The `manageSearchOperation` must return a `javax.ws.rs.core.Response`. A `None` value makes continue the operation processing normally.
 
